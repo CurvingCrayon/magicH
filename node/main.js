@@ -1,6 +1,9 @@
 var express = require("express");
 var app = express();
 var parseString = require("xml2js").parseString;
+var mosca = require("./mosca.js");
+var myMQTT = require("./myMQTT.js");
+
 
 var allowedFolders = ["libraries","static"];
 var requestStatus= false;
@@ -15,7 +18,7 @@ var options = {
     }
 };
 
-app/*.get("/poll",function(req,res){
+/*.get("/poll",function(req,res){
     if(requestStatus){
         res.send(requestPayload);
         requestStatus = false;
@@ -24,7 +27,8 @@ app/*.get("/poll",function(req,res){
         res.send("false");
     }
     
-})*/.get("/",function(req,res){
+}).*/
+app.get("/",function(req,res){
     var newPath = __dirname.split("\\");
     newPath.pop();
     newPath = newPath.join("/");
@@ -42,6 +46,10 @@ app/*.get("/poll",function(req,res){
         
     })
     console.log("Index loaded");
+}).get("/mqtt/:topic/:message",function(req, res){
+    //console.log("MQTT detected: "+req.params.topic+" "+req.params.message);
+    myMQTT.message(req.params.topic, req.params.message, res);
+    
 }).get("/request",function(req,res){
     console.log("Flickr request received.");
     flickr.sendRequest(options, function(status, responseText){
