@@ -1,106 +1,58 @@
 var express = require("express");
 var app = express();
-var parseString = require("xml2js").parseString;
-var mosca = require("./mosca.js");
-var myMQTT = require("./myMQTT.js");
+var type = "rgb";
+var cmd = "(255,0,0)"; //Current lighting command
+var cmdSeen = false; //Whether the node has seen the latest command
+
+var numPole = 0;
 
 
-var allowedFolders = ["libraries","static"];
-var requestStatus= false;
-var requestPayload = "";
-var options = {
-    host: "api.flickr.com",
-    port: 443,
-    path: "/services/feeds/photos_public.gne",
-    method: "GET",
-    headers: {
-        "Content-Type": "application/xml"
-    }
-};
-
-/*.get("/poll",function(req,res){
-    if(requestStatus){
-        res.send(requestPayload);
-        requestStatus = false;
-    }
-    else{
-        res.send("false");
-    }
-    
-}).*/
 app.get("/",function(req,res){
-    var newPath = __dirname.split("\\");
-    newPath.pop();
-    newPath = newPath.join("/");
-    newPath += "/";
-    newPath = "."+newPath;
-    var fileOptions = {
-        root: newPath,
-        dotfiles: 'deny',
-        headers: {
-            'x-timestamp': Date.now(),
-            'x-sent': true
-        }
+    if(cmdSeen){
+        res.send("X: No new data");
+    }else{
+        cmdSeen = true;
+        res.send(type+"."+cmd);
     }
-    res.sendFile("index.html",fileOptions,function(){
+    console.log("Receive request initiated ("+String(numPole)+"), "+(cmdSeen?"seen":"false"));
+    numPole++;
+    // var newPath = __dirname.split("\\");
+    // newPath.pop();
+    // newPath = newPath.join("/");
+    // newPath += "/";
+    // newPath = "."+newPath;
+    // var fileOptions = {
+    //     root: newPath,
+    //     dotfiles: 'deny',
+    //     headers: {
+    //         'x-timestamp': Date.now(),
+    //         'x-sent': true
+    //     }
+    // }
+    // res.sendFile("index.html",fileOptions,function(){
         
-    })
-    console.log("Index loaded");
-}).get("/mqtt/:topic/:message",function(req, res){
-    //console.log("MQTT detected: "+req.params.topic+" "+req.params.message);
-    myMQTT.message(req.params.topic, req.params.message, res);
-    
-}).get("/request",function(req,res){
-    console.log("Flickr request received.");
-    flickr.sendRequest(options, function(status, responseText){
-        if(status == 200){
-            parseString(responseText, handleXML); //Equivalent to handleXML(parseString(responseText))
-            res.send("received");
-        }
-        else{
-            handleError(responseText);
-        }
+    // })
+    // console.log("Index loaded");
+}).get("/mqtt/:type/:cmd",function(req, res){
+    if(req.params.cmd !== cmd || req.params.type !== type){
+        cmd = req.params.cmd;
+        type = req.params.type;
+        cmdSeen = false;
+    }
+    res.send(req.params.type+"."+req.params.cmd);
+}).get("/receive",function(req,res){
+    if(cmdSeen){
+        res.send("X: No new data");
+    }else{
+        cmdSeen = true;
+        res.send(type+"."+cmd);
+    }
+    console.log("Receive request initiated ("+String(numPole)+"), "+(cmdSeen?"seen":"false"));
+    numPole++;
+}).get("/falsereceive",function(req,res){
+    res.send(type+"."+cmd);
 
-    });
-    
-}).get("/:folder/:file",function(req,res){
-    var permission = false;
-    for(var f in allowedFolders){
-        if(allowedFolders[f] === req.params.folder){
-            permission = true;
-        }
-    }
-    if(permission){
-        var newPath = __dirname.split("\\");
-        newPath.pop();
-        newPath = newPath.join("/")+"/"+req.params.folder;
-        newPath = "."+newPath;
-        var fileOptions = {
-            root: newPath,
-            dotfiles: 'deny',
-            headers: {
-                'x-timestamp': Date.now(),
-                'x-sent': true
-            }
-        }
-        res.sendFile(req.params.file,fileOptions,
-            function(err){
-            }
-        );
-    }
-    else{
-        res.status(404);
-    }
+}).get("/log/:message",function(req,res){
+
 });
-
-function handleXML(err, feedObj){
-    var entries = flickr.formatFeedObject(feedObj);
-    requestPayload = JSON.stringify(entries);
-    requestStatus = true;
-}
-function handleError(errorText){
-    requestPayload = errorText;
-    requestStatus = true;
-}
-
 app.listen(8000);
