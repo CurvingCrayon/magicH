@@ -1,32 +1,9 @@
-//************************************************************************************************************
-//
-// There are scores of ways to use asyncHTTPrequest.  The important thing to keep in mind is that
-// it is asynchronous and just like in JavaScript, everything is event driven.  You will have some
-// reason to initiate an asynchronous HTTP request in your program, but then sending the request
-// headers and payload, gathering the response headers and any payload, and processing
-// of that response, can (and probably should) all be done asynchronously.
-//
-// In this example, a Ticker function is setup to fire every 5 seconds to initiate a request.
-// Everything is handled in asyncHTTPrequest without blocking.
-// The callback onReadyStateChange is made progressively and like most JS scripts, we look for 
-// readyState == 4 (complete) here.  At that time the response is retrieved and printed.
-//
-// Note that there is no code in loop().  A code entered into loop would run oblivious to
-// the ongoing HTTP requests.  The Ticker could be removed and periodic calls to sendRequest()
-// could be made in loop(), resulting in the same asynchronous handling.
-//
-// For demo purposes, debug is turned on for handling of the first request.  These are the
-// events that are being handled in asyncHTTPrequest.  They all begin with Debug(nnn) where
-// nnn is the elapsed time in milliseconds since the transaction was started.
-//
-//*************************************************************************************************************
-
-
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>
 #include "./asyncHTTPrequest.h"
 
-#define REFRESH 1000
+
+#define REFRESH 100
 
 WiFiManager wifiManager;
 asyncHTTPrequest request;
@@ -41,13 +18,44 @@ asyncHTTPrequest request;
 #define URL "http://192.168.254.7:8000/receive"
 #define DATA_PIN 6
 #define NUM_LEDS 61
-#define VAR 20
+#define VAR 100
 #define SPEED 1
 #define FPS 10
 CRGB leds[NUM_LEDS];
 CRGBPalette16 currentPalette;
 TBlendType    currentBlending = LINEARBLEND;
 
+int solidColour[3] = {0,0,255};
+String disp = "palette";
+
+void process(String data) {
+
+  if (data[0] == 'X') {
+    //Serial.println("Nothing new");
+  }
+  else {
+    String type = data.substring(0, data.indexOf("."));
+    String cmd = data.substring(data.indexOf(".") + 1);
+    if (type == "rgb") {
+      disp = "palette";
+      processRgb(cmd, &setPallet);
+
+    }
+    else if(type == "solid"){
+      disp = "solid";
+      processRgb(cmd, &storeSolid);
+      
+    }
+    else if(type == "beat"){
+      disp = "beat";
+      processRgb(cmd, &storeSolid);
+    }
+    else {
+      Serial.print("Unrecognised type: ");
+      Serial.println(type);
+    }
+  }
+}
 
 void sendRequest(){
     if(request.readyState() == 0 || request.readyState() == 4){
@@ -58,7 +66,9 @@ void sendRequest(){
 
 void requestCB(void* optParm, asyncHTTPrequest* request, int readyState){
     if(readyState == 4){
-        Serial.println(request->responseText());
+      String res = request->responseText();
+        process(res);
+        Serial.println(res);
         Serial.println();
         request->setDebug(false);
     }
@@ -88,11 +98,29 @@ void setup(){
 
     leds[0] = CRGB(0,200,0);
     FastLED.show();
+    setPallet(0,0,200);
 }
 
 void loop() {
     if(millis() % REFRESH == 0){
       sendRequest();
+    }
+    static uint8_t pos = 0;
+    int m = millis();
+    if(m % FPS == 0){
+      pos = pos + SPEED;
+      Serial.println(pos);
+      if(disp == "palette"){
+          fill(pos);
+      }
+      else if(disp == "beat"){
+          beat(m%(1050));
+      }
+      else if(disp == "solid"){
+          light(solidColour[0], solidColour[1], solidColour[2]);
+      }
+      
+      FastLED.show();
     }
 
 }
