@@ -20,7 +20,7 @@ asyncHTTPrequest request;
 #define NUM_LEDS 61
 #define VAR 100
 #define SPEED 1
-#define FPS 10
+#define FPS 30
 CRGB leds[NUM_LEDS];
 CRGBPalette16 currentPalette;
 TBlendType    currentBlending = LINEARBLEND;
@@ -86,7 +86,7 @@ void setup(){
     WiFi.setAutoConnect(true);
     WiFi.begin();
     while(WiFi.status() != WL_CONNECTED){
-        wifiManager.setDebugOutput(false);
+        wifiManager.setDebugOutput(true);
         wifiManager.setConfigPortalTimeout(180);
         Serial.println("Connecting with WiFiManager");
         wifiManager.autoConnect("ESP8266", "ESP8266");
@@ -106,15 +106,19 @@ void loop() {
       sendRequest();
     }
     static uint8_t pos = 0;
+    static uint8_t pos2 = 0;
     int m = millis();
     if(m % FPS == 0){
       pos = pos + SPEED;
-      Serial.println(pos);
+      pos = pos % 255;
+      pos2++;
+      pos = pos % 1050;
+      //Serial.println(pos);
       if(disp == "palette"){
           fill(pos);
       }
       else if(disp == "beat"){
-          beat(m%(1050));
+          beat(pos);
       }
       else if(disp == "solid"){
           light(solidColour[0], solidColour[1], solidColour[2]);
